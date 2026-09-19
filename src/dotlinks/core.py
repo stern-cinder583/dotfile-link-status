@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -75,3 +76,38 @@ def check(spec: LinkSpec) -> LinkResult:
 
 def check_all(specs: Iterable[LinkSpec]) -> list[LinkResult]:
     return [check(spec) for spec in specs]
+
+
+def apply(result: LinkResult, *, force: bool = False) -> LinkResult:
+    """Create or repair the symlink a check() result describes.
+
+    OK results are returned unchanged. MISSING, WRONG_TARGET, and BROKEN are
+    fixed by (re)creating the symlink at spec.target pointing at spec.source.
+    OCCUPIED is left alone unless force is set, since something not managed
+    by dotlinks is sitting on the target and silently deleting it would lose
+    whatever that was.
+    """
+    spec = result.spec
+
+    if result.state == LinkState.OK:
+        return result
+
+    if result.state == LinkState.OCCUPIED and not force:
+        raise FileExistsError(
+            f"{spec.target} is a real file or directory, not a symlink; "
+            "pass force=True to replace it"
+        )
+
+    if result.state in (LinkState.WRONG_TARGET, LinkState.BROKEN, LinkState.OCCUPIED):
+        if spec.target.is_symlink() or not spec.target.is_dir():
+            spec.target.unlink()
+        else:
+            shutil.rmtree(spec.target)
+
+    spec.target.parent.mkdir(parents=True, exist_ok=True)
+    spec.target.symlink_to(spec.source)
+    return check(spec)
+
+
+def apply_all(results: Iterable[LinkResult], *, force: bool = False) -> list[LinkResult]:
+    return [apply(result, force=force) for result in results]

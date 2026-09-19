@@ -78,7 +78,24 @@ With `--json`, each entry looks like:
 `state` is always one of `ok`, `missing`, `wrong_target`, `occupied`, `broken`,
 so downstream tooling can match on it without parsing the detail string.
 
+## Fixing links
+
+`apply()` takes a single `LinkResult` and makes the filesystem match it:
+`missing` links get created, `wrong_target` and `broken` links get replaced.
+`ok` results are a no-op. `occupied` results are left alone and raise
+`FileExistsError` unless you pass `force=True`, since something not managed
+by dotlinks is sitting on the target.
+
+```python
+results = dotlinks.check_all(dotlinks.discover(Path("~/dotfiles")))
+fixed = dotlinks.apply_all(results)
+print(dotlinks.format(fixed))
+```
+
+`apply_all` applies `apply` to every result and returns the resulting list,
+so you can check() before and after and diff the two reports.
+
 ## Status
 
 Early skeleton. `discover` only handles a flat directory of files today;
-nested dotfiles repos and actually creating/fixing links come next.
+nested dotfiles repos come next.
