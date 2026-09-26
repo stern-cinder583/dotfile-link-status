@@ -95,7 +95,14 @@ print(dotlinks.format(fixed))
 `apply_all` applies `apply` to every result and returns the resulting list,
 so you can check() before and after and diff the two reports.
 
+## Nested directories
+
+`discover` walks the source directory recursively. Only the top-level
+component of a path gets a "." prepended; the rest of the path is kept
+as-is, so `dotfiles/vim/vimrc` maps to `~/.vim/vimrc`, not `~/.vim/.vimrc`.
+A name starting with "." or listed in `skip` is pruned wherever it appears,
+so `.git` and similar tooling directories are never descended into.
+
 ## Status
 
-Early skeleton. `discover` only handles a flat directory of files today;
-nested dotfiles repos come next.
+Early skeleton. No unit tests yet.

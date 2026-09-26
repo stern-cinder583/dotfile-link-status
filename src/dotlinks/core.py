@@ -35,24 +35,34 @@ class LinkResult:
 
 
 def discover(source_dir: Path, home: Path | None = None, skip: Iterable[str] = ()) -> list[LinkSpec]:
-    """Build the dotfile -> home mapping from a flat dotfiles directory.
+    """Build the dotfile -> home mapping from a dotfiles directory, recursing into subdirectories.
 
-    Every regular file directly inside source_dir becomes a target named
-    "." + filename under home. Subdirectories and names already starting
-    with "." are skipped, since a dotfiles repo usually keeps its own
-    tooling (.git, README, etc.) alongside the files it manages.
+    Only the top component of each relative path gets a "." prepended;
+    everything under it keeps its original name, so dotfiles/vim/vimrc
+    becomes ~/.vim/vimrc rather than ~/.vim/.vimrc. A name (checked at any
+    depth, not just the top level) is skipped if it starts with "." or
+    appears in skip, so tooling directories like .git are never descended
+    into and never show up as a spec.
     """
     source_dir = source_dir.expanduser().resolve()
     home = (home or Path.home()).expanduser().resolve()
     skip_set = set(skip)
 
-    specs = []
-    for entry in sorted(source_dir.iterdir()):
-        if entry.name in skip_set or entry.name.startswith("."):
-            continue
-        if not entry.is_file():
-            continue
-        specs.append(LinkSpec(name=entry.name, source=entry, target=home / f".{entry.name}"))
+    specs: list[LinkSpec] = []
+
+    def _collect(dir_path: Path, rel_parts: tuple[str, ...]) -> None:
+        for entry in sorted(dir_path.iterdir()):
+            if entry.name in skip_set or entry.name.startswith("."):
+                continue
+            parts = rel_parts + (entry.name,)
+            if entry.is_dir():
+                _collect(entry, parts)
+            elif entry.is_file():
+                name = "/".join(parts)
+                target = home.joinpath(f".{parts[0]}", *parts[1:])
+                specs.append(LinkSpec(name=name, source=entry, target=target))
+
+    _collect(source_dir, ())
     return specs
 
 
