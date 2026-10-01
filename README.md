@@ -105,4 +105,9 @@ so `.git` and similar tooling directories are never descended into.
 
 ## Status
 
-Early skeleton. No unit tests yet.
+Early. Tests use only `unittest` and temporary directories, so running them
+needs nothing beyond the standard library:
+
+```
+PYTHONPATH=src python -m unittest discover -s tests
+```
